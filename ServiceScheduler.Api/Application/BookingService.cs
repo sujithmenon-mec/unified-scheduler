@@ -63,6 +63,16 @@ public class BookingService(SchedulerDbContext dbContext, TimeProvider timeProvi
                 await using var transaction = await dbContext.Database.BeginTransactionAsync(
                     IsolationLevel.Serializable, cancellationToken);
 
+                var vehicleAlreadyBooked = await dbContext.Appointments.AnyAsync(appointment =>
+                    appointment.VehicleId == vehicle.Id &&
+                    appointment.Status == AppointmentStatus.Confirmed &&
+                    appointment.StartUtc < window.End && appointment.EndUtc > window.Start,
+                    cancellationToken);
+                if (vehicleAlreadyBooked)
+                {
+                    return BookingResult.Failure("VEHICLE_ALREADY_BOOKED", ServiceErrorCategory.Conflict);
+                }
+
                 var freeBay = await dbContext.ServiceBays
                     .Where(bay => bay.DealershipId == dealership.Id && bay.IsActive)
                     .Where(bay => !dbContext.Appointments.Any(appointment =>
