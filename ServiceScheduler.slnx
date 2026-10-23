@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ServiceScheduler.Api/ServiceScheduler.Api.csproj" />
+  <Project Path="ServiceScheduler.Tests/ServiceScheduler.Tests.csproj" />
+</Solution>
