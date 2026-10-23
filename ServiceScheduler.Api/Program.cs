@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ServiceScheduler.Api.Application;
 using ServiceScheduler.Api.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +10,9 @@ builder.Services.AddControllers();
 builder.Services.AddDbContext<SchedulerDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("SchedulerDb")
         ?? throw new InvalidOperationException("Connection string 'SchedulerDb' was not found.")));
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddScoped<BookingService>();
+builder.Services.AddScoped<AvailabilityService>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
