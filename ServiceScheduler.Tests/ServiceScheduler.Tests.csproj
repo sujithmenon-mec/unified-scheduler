@@ -26,4 +26,8 @@
     <ProjectReference Include="..\ServiceScheduler.Api\ServiceScheduler.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\db\02_seed.sql" Link="db\02_seed.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

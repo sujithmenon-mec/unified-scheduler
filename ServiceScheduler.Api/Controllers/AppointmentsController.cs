@@ -22,14 +22,12 @@ public class AppointmentsController(BookingService bookingService, SchedulerDbCo
         var result = await bookingService.BookAsync(request, cancellationToken);
         if (!result.Succeeded)
         {
-            return new ObjectResult(ApiProblem.FromError(result.Error!))
-            {
-                StatusCode = ApiProblem.FromError(result.Error!).Status
-            };
+            var problem = ApiProblem.FromError(result.Error!);
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         var response = AppointmentResponse.From(result.Appointment!);
-        return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
+        return Ok(response);
     }
 
     [HttpGet("{id:guid}")]

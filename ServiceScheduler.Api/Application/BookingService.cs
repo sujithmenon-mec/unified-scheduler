@@ -1,4 +1,5 @@
 using System.Data;
+using System.Diagnostics;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -7,9 +8,54 @@ using ServiceScheduler.Api.Infrastructure;
 
 namespace ServiceScheduler.Api.Application;
 
-public class BookingService(SchedulerDbContext dbContext, TimeProvider timeProvider)
+public class BookingService(
+    SchedulerDbContext dbContext,
+    TimeProvider timeProvider,
+    SchedulerMetrics metrics,
+    ILogger<BookingService> logger)
 {
-    public async Task<BookingResult> BookAsync(BookingRequest request, CancellationToken cancellationToken = default)
+    public async Task<BookingResult> BookAsync(
+        BookingRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var startedAt = Stopwatch.GetTimestamp();
+        logger.LogInformation(
+            "BookingRequested VehicleId={VehicleId} DealershipId={DealershipId} ServiceTypeId={ServiceTypeId}",
+            request.VehicleId, request.DealershipId, request.ServiceTypeId);
+
+        try
+        {
+            var result = await BookCoreAsync(request, cancellationToken);
+            if (result.Succeeded)
+            {
+                var appointment = result.Appointment!;
+                metrics.RecordAppointmentConfirmed();
+                logger.LogInformation(
+                    "BookingConfirmed AppointmentId={AppointmentId} BayId={BayId} TechnicianId={TechnicianId}",
+                    appointment.Id, appointment.ServiceBayId, appointment.TechnicianId);
+            }
+            else
+            {
+                var reason = result.Error!.Code;
+                if (result.Error.Category == ServiceErrorCategory.Conflict)
+                {
+                    metrics.RecordBookingConflict(reason);
+                }
+
+                logger.LogInformation("BookingRejected ReasonCode={ReasonCode}", reason);
+            }
+
+            return result;
+        }
+        finally
+        {
+            metrics.RecordBookingDuration(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
+        }
+    }
+
+    private async Task<BookingResult> BookCoreAsync(
+        BookingRequest request,
+        CancellationToken cancellationToken)
     {
         if (request.VehicleId == Guid.Empty || request.DealershipId == Guid.Empty ||
             request.ServiceTypeId == Guid.Empty || !TryParseOffset(request.StartTime, out var requestedStart))
@@ -42,16 +88,13 @@ public class BookingService(SchedulerDbContext dbContext, TimeProvider timeProvi
 
         var window = new TimeWindow(requestedStart, requestedStart.AddMinutes(serviceType.DurationMinutes));
         var now = timeProvider.GetUtcNow();
-        if (window.Start <= now)
+        if (BookingRules.HasStarted(window, timeProvider))
         {
             return BookingResult.Failure("START_IN_PAST", ServiceErrorCategory.BadRequest);
         }
 
         var timeZone = TimeZoneInfo.FindSystemTimeZoneById(dealership.TimeZoneId);
-        var localStart = TimeZoneInfo.ConvertTime(window.Start, timeZone);
-        var localEnd = TimeZoneInfo.ConvertTime(window.End, timeZone);
-        if (localStart.Date != localEnd.Date || TimeOnly.FromDateTime(localStart.DateTime) < dealership.OpenTime ||
-            TimeOnly.FromDateTime(localEnd.DateTime) > dealership.CloseTime)
+        if (!BookingRules.IsWithinWorkingHours(window, timeZone, dealership.OpenTime, dealership.CloseTime))
         {
             return BookingResult.Failure("OUTSIDE_WORKING_HOURS", ServiceErrorCategory.BadRequest);
         }
