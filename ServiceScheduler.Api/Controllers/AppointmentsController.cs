@@ -27,8 +27,7 @@ public class AppointmentsController(BookingService bookingService, SchedulerDbCo
         }
 
         var response = AppointmentResponse.From(result.Appointment!);
-        return Ok(response);
-    }
+        return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);    }
 
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(AppointmentResponse), StatusCodes.Status200OK)]

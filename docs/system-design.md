@@ -19,7 +19,7 @@ graph TD
 - **Client / Test Harness**: Sends HTTP requests or runs unit/integration tests.
 - **API Layer (Controllers)**: Receives requests, validates models, delegates to application services, and returns HTTP responses.
 - **Application Services (BookingService, AvailabilityService)**: Contains business logic, uses `SchedulerDbContext` for database access, and applies domain rules.
-- **Domain Models**: Immutable records representing entities such as `Appointment`, `Dealership`, `ServiceBay`, etc.
+- **Domain Models**: Class representing entities such as `Appointment`, `Dealership`, `ServiceBay`, etc.
 - **Infrastructure**: Database context, entity‑framework configurations, exception handling, correlation ID middleware, metrics, and OpenTelemetry integration.
 - **PostgreSQL**: Stores all domain data; used by both application services and health checks.
 - **Observability**: Serilog for structured logging, OpenTelemetry for distributed tracing, and custom metrics via `SchedulerMetrics`.
@@ -46,11 +46,9 @@ graph TD
 - **Serilog + RenderedCompactJsonFormatter**: Structured, console‑friendly logging.
 - **OpenTelemetry + Console Exporter**: Distributed tracing and metrics for observability.
 - **xUnit**: Lightweight unit‑test framework.
-- **WebApplicationFactory**: Isolated integra
 ## 5. Concurrency strategy
 
 - **Serializable transaction** in `BookingService` retries up to three times on PostgreSQL serialization failures.
-- **Exclusion constraints** via unique indexes on `(ServiceBayId, StartUtc, EndUtc)` and `(TechnicianId, StartUtc, EndUtc)` prevent duplicate bookings at the DB level.
 - **Vehicle‑already‑booked check** ensures no overlapping appointments for the same vehicle.
 
 ## 6. Observability strategy
@@ -60,20 +58,18 @@ graph TD
 - **Traces**: OpenTelemetry instruments ASP.NET Core, HttpClient, and Npgsql.
 - **Health checks**: `/health` (always healthy) and `/health/ready` (checks DB connection).
 
-## 7. Scalability and reliability
+## 7. Scalability, reliability and assumptions
 
 - **Stateless API**: Behind a load balancer; each request is independent.
 - **Read replicas**: Availability queries could be directed to a read replica for lower latency.
 - **Short‑lived caching**: In‑memory cache for dealership hours and service types (not implemented yet).
 - **Idempotency keys**: Not implemented; retries are safe due to serializable transactions.
-- **Outbox pattern**: Not implemented; notifications are synchronous.
 
 
 - **Assumptions**: UTC dealership time zone, fixed working hours, seeded data IDs, no authentication.
 - **Future work**: Add authentication/authorization, reschedule/cancellation endpoints, multi‑bay jobs, technician shift management, outbox for notifications, caching, load testing, CI/CD pipeline.
 
-## 9. How I used GenAI in the design phase
-
+## 8. How I used GenAI in the design phase
 - **API contract design**: Defined request/response models, validation rules, and error handling patterns.
 - **Business logic implementation**: Built the booking service with serializable transactions, availability queries, and conflict detection.
 - **Observability setup**: Configured Serilog, OpenTelemetry, metrics, and correlation IDs.

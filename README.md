@@ -6,7 +6,7 @@ A .NET 10 web API that books vehicle service appointments at a dealership. It us
 
 - Accepts POST `/api/appointments` to create a new appointment.
 - Validates input, checks dealership hours, vehicle existence, and service‑bay/technician availability.
-- Returns 200 Created with a new appointment.
+- Returns 201 Created with a new appointment.
 - Supports GET `/api/appointments/{id}` to retrieve an appointment.
 - Provides availability slots via GET `/api/availability`.
 - Includes health endpoints: `/health` (liveness) and `/health/ready` (database readiness).
